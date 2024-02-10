@@ -5,7 +5,7 @@ const JWT = require("jsonwebtoken");
 
 //declared this funcs again just because i am lazy to export and import,  but not lazy to write this long comment smhow
 
-const errorHandling = (err) => {
+const errorHandling = (err, next) => {
   if (!err.statusCode) {
     err.statusCode = 500;
   }
@@ -41,7 +41,7 @@ exports.signUp = (req, res, next) => {
     .then((result) => {
       res.status(201).json({ message: "User created", userId: result._id });
     })
-    .catch((err) => errorHandling(err));
+    .catch((err) => errorHandling(err, next));
 };
 
 exports.login = (req, res, next) => {
@@ -69,5 +69,5 @@ exports.login = (req, res, next) => {
       );
       res.status(200).json({ token: token, userId: loadedUser._id.toString() });
     })
-    .catch((err) => errorHandling(err));
+    .catch((err) => errorHandling(err, next));
 };

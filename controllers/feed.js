@@ -5,7 +5,7 @@ const Post = require("../models/post");
 const fs = require("fs");
 const path = require("path");
 
-const errorHandling = (err) => {
+const errorHandling = (err, next) => {
   if (!err.statusCode) {
     err.statusCode = 500;
   }
@@ -46,7 +46,7 @@ exports.getPosts = (req, res, next) => {
         totalItems: totalItems,
       });
     })
-    .catch((err) => errorHandling(err));
+    .catch((err) => errorHandling(err, next));
 };
 
 exports.createPost = (req, res, next) => {
@@ -76,7 +76,7 @@ exports.createPost = (req, res, next) => {
       });
     })
     .catch((err) => {
-      errorHandling(err);
+      errorHandling(err, next);
     });
 };
 
@@ -90,7 +90,7 @@ exports.getSinglePost = (req, res, next) => {
       res.status(200).json({ message: "Post fetched", post: post });
     })
     .catch((err) => {
-      errorHandling(err);
+      errorHandling(err, next);
     });
 };
 
@@ -130,7 +130,7 @@ exports.updatePost = (req, res, next) => {
     .then((result) => {
       res.status(200).json({ message: "Post updated", post: result });
     })
-    .catch((err) => errorHandling(err));
+    .catch((err) => errorHandling(err, next));
 };
 exports.deletePost = (req, res, next) => {
   const postId = req.params.postId;
@@ -146,5 +146,5 @@ exports.deletePost = (req, res, next) => {
     .then((result) => {
       res.status(200).json({ message: "Deleted successfully" });
     })
-    .catch((err) => errorHandling(err));
+    .catch((err) => errorHandling(err, next));
 };
