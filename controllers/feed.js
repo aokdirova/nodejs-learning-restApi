@@ -1,6 +1,7 @@
 const { validationResult } = require("express-validator");
 
 const Post = require("../models/post");
+const User = require("../models/user");
 
 const fs = require("fs");
 const path = require("path");
@@ -60,19 +61,29 @@ exports.createPost = (req, res, next) => {
   const imageUrl = req.file.path;
   const title = req.body.title;
   const content = req.body.content;
+  let creator;
   //create post in db
   const post = new Post({
     title: title,
     content: content,
     imageUrl: imageUrl,
-    creator: { name: "A" },
+    creator: req.userId,
   });
   post
     .save()
+    .then(() => {
+      return User.findById(req.userId);
+    })
+    .then((user) => {
+      creator = user;
+      user.posts.push(post);
+      return user.save();
+    })
     .then((result) => {
-      res.status(201).json({
-        message: "post created successfully",
-        post: result,
+      res.status(200).json({
+        message: "Post created successfully",
+        post: post,
+        creator: { _id: creator._id, name: creator.name },
       });
     })
     .catch((err) => {
@@ -100,7 +111,6 @@ const deleteFile = (filePath) => {
 };
 
 exports.updatePost = (req, res, next) => {
-  console.log(req.body);
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     errorWithMessage("Validation error", 422);
@@ -118,6 +128,9 @@ exports.updatePost = (req, res, next) => {
     .then((post) => {
       if (!post) {
         errorWithMessage("Could not find post!", 404);
+      }
+      if (post.creator.toString() !== req.userId) {
+        errorWithMessage("Not authorized", 403);
       }
       if (imageUrl !== post.imageUrl) {
         deleteFile(post.imageUrl);
@@ -139,6 +152,9 @@ exports.deletePost = (req, res, next) => {
       //check if user authorized
       if (!post) {
         errorWithMessage("Could not find post!", 404);
+      }
+      if (post.creator.toString() !== req.userId) {
+        errorWithMessage("Not authorized", 403);
       }
       deleteFile(post.imageUrl);
       return Post.findByIdAndDelete(postId);
