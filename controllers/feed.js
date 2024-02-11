@@ -6,6 +6,9 @@ const User = require("../models/user");
 const fs = require("fs");
 const path = require("path");
 
+const io = require("../socket");
+const user = require("../models/user");
+
 const errorHandling = (err, next) => {
   if (!err.statusCode) {
     err.statusCode = 500;
@@ -22,25 +25,27 @@ const errorWithMessage = (message, statusCode) => {
 
 ///////////////////////////////////////////////
 
-exports.getPosts = async (req, res, next) => { //used async await in this controller
+exports.getPosts = async (req, res, next) => {
+  //used async await in this controller
   const currentPage = req.query.page || 1;
   const postsPerPage = 2;
   try {
     const totalItems = await Post.find().countDocuments();
-    if (!totalItems) {
-      errorWithMessage("no posts found", 404);
+    if (totalItems) {
+      const posts = await Post.find()
+        .populate("creator")
+        .sort({ createdAt: -1 })
+        .skip((currentPage - 1) * postsPerPage)
+        .limit(postsPerPage);
+      if (!posts) {
+        errorWithMessage("No posts found", 404);
+      }
+      res.status(200).json({
+        message: "Fetched posts successfully",
+        posts: posts,
+        totalItems: totalItems,
+      });
     }
-    const posts = await Post.find()
-      .skip((currentPage - 1) * postsPerPage)
-      .limit(postsPerPage);
-    if (!posts) {
-      errorWithMessage("No posts found", 404);
-    }
-    res.status(200).json({
-      message: "Fetched posts successfully",
-      posts: posts,
-      totalItems: totalItems,
-    });
   } catch (err) {
     errorHandling(err, next);
   }
@@ -76,6 +81,10 @@ exports.createPost = (req, res, next) => {
       return user.save();
     })
     .then((result) => {
+      io.getIO().emit("posts", {
+        action: "create",
+        post: { ...post._doc, creator: { _id: req.userId, name: user.name } },
+      });
       res.status(200).json({
         message: "Post created successfully",
         post: post,
@@ -121,11 +130,12 @@ exports.updatePost = (req, res, next) => {
     errorWithMessage("No file picked", 422);
   }
   Post.findById(postId)
+    .populate("creator")
     .then((post) => {
       if (!post) {
         errorWithMessage("Could not find post!", 404);
       }
-      if (post.creator.toString() !== req.userId) {
+      if (post.creator._id.toString() !== req.userId) {
         errorWithMessage("Not authorized", 403);
       }
       if (imageUrl !== post.imageUrl) {
@@ -137,6 +147,7 @@ exports.updatePost = (req, res, next) => {
       return post.save();
     })
     .then((result) => {
+      io.getIO().emit("posts", { action: "update", post: result });
       res.status(200).json({ message: "Post updated", post: result });
     })
     .catch((err) => errorHandling(err, next));
@@ -163,6 +174,7 @@ exports.deletePost = (req, res, next) => {
       return user.save();
     })
     .then(() => {
+      io.getIO().emit("posts", { action: "delete", post: postId });
       res.status(200).json({ message: "Deleted successfully" });
     })
     .catch((err) => errorHandling(err, next));
@@ -196,7 +208,7 @@ exports.updateStatus = (req, res, next) => {
       user.status = newStatus;
       return user.save();
     })
-    .then(() => {
+    .then((result) => {
       res.status(200).json({
         message: "updated status successfully",
       });

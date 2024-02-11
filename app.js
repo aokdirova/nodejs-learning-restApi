@@ -10,6 +10,8 @@ const authRoutes = require("./routes/auth");
 
 const app = express();
 
+////////////////////////////////////////////////////////////////
+
 function getRandomNumber(min, max) {
   return Math.floor(Math.random() * (max - min) + min);
 }
@@ -36,6 +38,7 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
+////////////////////////////////////////////////////////////////////////////
 app.use(bodyParser.json());
 app.use(
   multer({ storage: fileStorage, fileFilter: fileFilter }).single("image")
@@ -64,6 +67,10 @@ app.use((error, req, res, next) => {
 mongoose
   .connect(process.env.MONGO_DB_URL)
   .then(() => {
-    app.listen(8080);
+    const server = app.listen(8080);
+    const io = require('./socket').init(server)
+    io.on("connection", () => {
+      console.log("Client Connected");
+    });
   })
   .catch((err) => console.log(err));
