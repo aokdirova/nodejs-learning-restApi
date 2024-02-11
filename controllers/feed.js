@@ -22,32 +22,28 @@ const errorWithMessage = (message, statusCode) => {
 
 ///////////////////////////////////////////////
 
-exports.getPosts = (req, res, next) => {
+exports.getPosts = async (req, res, next) => { //used async await in this controller
   const currentPage = req.query.page || 1;
   const postsPerPage = 2;
-  let totalItems;
-
-  Post.countDocuments()
-    .then((items) => {
-      if (!items) {
-        errorWithMessage("no posts found", 404);
-      }
-      totalItems = items;
-      return Post.find()
-        .skip((currentPage - 1) * postsPerPage)
-        .limit(postsPerPage);
-    })
-    .then((posts) => {
-      if (!posts) {
-        errorWithMessage("No posts found", 404);
-      }
-      res.status(200).json({
-        message: "Fetched posts successfully",
-        posts: posts,
-        totalItems: totalItems,
-      });
-    })
-    .catch((err) => errorHandling(err, next));
+  try {
+    const totalItems = await Post.find().countDocuments();
+    if (!totalItems) {
+      errorWithMessage("no posts found", 404);
+    }
+    const posts = await Post.find()
+      .skip((currentPage - 1) * postsPerPage)
+      .limit(postsPerPage);
+    if (!posts) {
+      errorWithMessage("No posts found", 404);
+    }
+    res.status(200).json({
+      message: "Fetched posts successfully",
+      posts: posts,
+      totalItems: totalItems,
+    });
+  } catch (err) {
+    errorHandling(err, next);
+  }
 };
 
 exports.createPost = (req, res, next) => {
@@ -160,7 +156,52 @@ exports.deletePost = (req, res, next) => {
       return Post.findByIdAndDelete(postId);
     })
     .then((result) => {
+      return User.findById(req.userId);
+    })
+    .then((user) => {
+      user.posts.pull(postId);
+      return user.save();
+    })
+    .then(() => {
       res.status(200).json({ message: "Deleted successfully" });
     })
     .catch((err) => errorHandling(err, next));
+};
+
+exports.getStatus = (req, res, next) => {
+  User.findById(req.userId)
+    .then((user) => {
+      if (!user) {
+        errorWithMessage("user not found", 404);
+      }
+      res.status(200).json({
+        message: "Fetched status successfully",
+        status: user.status,
+      });
+    })
+    .catch((err) => {
+      errorHandling(err, next);
+    });
+};
+exports.updateStatus = (req, res, next) => {
+  const newStatus = req.body.status;
+  if (!newStatus) {
+    errorWithMessage("Status cannot be empty", 422);
+  }
+  User.findById(req.userId)
+    .then((user) => {
+      if (!user) {
+        errorWithMessage("user not found", 404);
+      }
+      user.status = newStatus;
+      return user.save();
+    })
+    .then(() => {
+      res.status(200).json({
+        message: "updated status successfully",
+      });
+    })
+    .catch((err) => {
+      errorHandling(err, next);
+    });
 };
