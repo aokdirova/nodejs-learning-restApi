@@ -4,9 +4,13 @@ const mongoose = require("mongoose");
 const path = require("path");
 const cors = require("cors");
 const multer = require("multer");
+const { graphqlHTTP } = require("express-graphql");
+const graphqlSchema = require("./graphql/schema");
+const resolver = require("./graphql/resolvers");
 
 const feedRoutes = require("./routes/feed");
 const authRoutes = require("./routes/auth");
+const { error } = require("console");
 
 const app = express();
 
@@ -56,6 +60,24 @@ app.use(cors());
 
 // app.use("/feed", feedRoutes);
 // app.use("/auth", authRoutes);
+
+app.use(
+  "/graphql",
+  graphqlHTTP({
+    schema: graphqlSchema,
+    rootValue: resolver,
+    graphiql: true,
+    formatError(err) {
+      if (!err.originalError) {
+        return err;
+      }
+      const data = err.originalError.data;
+      const message = err.message || "an error occured";
+      const statusCode = err.originalError.code || 500;
+      return { message, statusCode, data };
+    },
+  })
+);
 
 app.use((error, req, res, next) => {
   const status = error.statusCode || 500;
