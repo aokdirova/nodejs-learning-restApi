@@ -54,8 +54,8 @@ app.use((req, res, next) => {
 app.options("*", cors());
 app.use(cors());
 
-app.use("/feed", feedRoutes);
-app.use("/auth", authRoutes);
+// app.use("/feed", feedRoutes);
+// app.use("/auth", authRoutes);
 
 app.use((error, req, res, next) => {
   const status = error.statusCode || 500;
@@ -67,10 +67,10 @@ app.use((error, req, res, next) => {
 mongoose
   .connect(process.env.MONGO_DB_URL)
   .then(() => {
-    const server = app.listen(8080);
-    const io = require('./socket').init(server)
-    io.on("connection", () => {
-      console.log("Client Connected");
-    });
+    app.listen(8000);
+    // const io = require("./socket").init(server);
+    // io.on("connection", () => {
+    //   console.log("Client Connected");
+    // });
   })
   .catch((err) => console.log(err));
