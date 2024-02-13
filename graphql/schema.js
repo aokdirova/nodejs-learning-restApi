@@ -25,12 +25,25 @@ input UserInputData {
     name: String!
     password: String!
 }
+
+input PostInputData {
+    title: String!
+    content: String!
+    imageUrl: String!
+}
+
 type RootMutation {
     createUser(userInput: UserInputData): User!
+    createPost(postInput: PostInputData): Post!
+}
+
+type AuthData {
+    token: String!
+    userId:String!
 }
 
 type RootQuery {
-    hello: String
+    login(email: String!, password: String!):AuthData
 }
    
     schema {
