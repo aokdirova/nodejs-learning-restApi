@@ -2,6 +2,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const path = require("path");
+const fs = require("fs");
 const cors = require("cors");
 const multer = require("multer");
 const { graphqlHTTP } = require("express-graphql");
@@ -10,9 +11,15 @@ const resolver = require("./graphql/resolvers");
 
 const feedRoutes = require("./routes/feed");
 const authRoutes = require("./routes/auth");
-const { error } = require("console");
+
+const auth = require("./middleware/auth");
 
 const app = express();
+
+const deleteFile = (filePath) => {
+  const constructedPath = path.join(__dirname, "..", filePath);
+  fs.unlink(constructedPath, (err) => console.log(err));
+};
 
 ////////////////////////////////////////////////////////////////
 
@@ -43,23 +50,41 @@ const fileFilter = (req, file, cb) => {
 };
 
 ////////////////////////////////////////////////////////////////////////////
+
+app.use(cors());
+app.options("*", cors());
+
+// app.use((req, res, next) => {
+//   res.setHeader("Access-Control-Allow-Origin", "*");
+//   res.setHeader("Acces-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE");
+//   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+//   if (req.method === "OPTIONS") {
+//     return res.sendStatus(200);
+//   }
+//   next();
+// });
+
 app.use(bodyParser.json());
 app.use(
   multer({ storage: fileStorage, fileFilter: fileFilter }).single("image")
 );
 app.use("/images", express.static(path.join(__dirname, "images")));
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Acces-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
+app.use(auth);
 
-app.options("*", cors());
-app.use(cors());
+app.put("/post-image", (req, res, next) => {
+  if (!req.isAuth) {
+    throw new Error("Not authenticated");
+  }
+  if (!req.file) {
+    return res.status(200).json({ message: "No file provided" });
+  }
+  if (req.body.oldPath) {
+    deleteFile(req.body.oldPath);
+  }
+  return res
+    .status(201)
+    .json({ message: "File stored", filePath: req.file.path });
+});
 
 // app.use("/feed", feedRoutes);
 // app.use("/auth", authRoutes);
@@ -92,10 +117,6 @@ app.use((error, req, res, next) => {
 mongoose
   .connect(process.env.MONGO_DB_URL)
   .then(() => {
-    app.listen(8000);
-    // const io = require("./socket").init(server);
-    // io.on("connection", () => {
-    //   console.log("Client Connected");
-    // });
+    app.listen(8080);
   })
   .catch((err) => console.log(err));
